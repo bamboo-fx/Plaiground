@@ -1,22 +1,26 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { dbStorage } from "./db-storage"; // Import the database storage
 import { searchQuerySchema, perplexityResponseSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { processSearchQuery } from "./openai";
 
+// Use database storage instead of memory storage when DATABASE_URL is present
+const dataStorage = process.env.DATABASE_URL ? dbStorage : storage;
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // API routes
   app.get("/api/tools", async (req: Request, res: Response) => {
     try {
-      const tools = await storage.getTools();
+      const tools = await dataStorage.getTools();
       
       // If we need categories and tags with each tool
       const toolsWithDetails = await Promise.all(
         tools.map(async (tool) => {
-          const categories = await storage.getToolCategories(tool.id);
-          const tags = await storage.getToolTags(tool.id);
+          const categories = await dataStorage.getToolCategories(tool.id);
+          const tags = await dataStorage.getToolTags(tool.id);
           return {
             ...tool,
             categories: categories.map(c => c.name),
@@ -35,13 +39,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/tools/featured", async (req: Request, res: Response) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 4;
-      const featuredTools = await storage.getFeaturedTools(limit);
+      const featuredTools = await dataStorage.getFeaturedTools(limit);
       
       // Get categories and tags for each tool
       const toolsWithDetails = await Promise.all(
         featuredTools.map(async (tool) => {
-          const categories = await storage.getToolCategories(tool.id);
-          const tags = await storage.getToolTags(tool.id);
+          const categories = await dataStorage.getToolCategories(tool.id);
+          const tags = await dataStorage.getToolTags(tool.id);
           return {
             ...tool,
             categories: categories.map(c => c.name),
@@ -59,7 +63,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/categories", async (req: Request, res: Response) => {
     try {
-      const categories = await storage.getCategories();
+      const categories = await dataStorage.getCategories();
       res.json(categories);
     } catch (error) {
       console.error("Error getting categories:", error);
@@ -70,13 +74,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/tools/category/:id", async (req: Request, res: Response) => {
     try {
       const categoryId = parseInt(req.params.id);
-      const tools = await storage.getToolsByCategory(categoryId);
+      const tools = await dataStorage.getToolsByCategory(categoryId);
       
       // Get categories and tags for each tool
       const toolsWithDetails = await Promise.all(
         tools.map(async (tool) => {
-          const categories = await storage.getToolCategories(tool.id);
-          const tags = await storage.getToolTags(tool.id);
+          const categories = await dataStorage.getToolCategories(tool.id);
+          const tags = await dataStorage.getToolTags(tool.id);
           return {
             ...tool,
             categories: categories.map(c => c.name),
@@ -104,11 +108,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get all tools with their categories and tags
-      const allTools = await storage.getTools();
+      const allTools = await dataStorage.getTools();
       const toolsWithDetails = await Promise.all(
         allTools.map(async (tool) => {
-          const categories = await storage.getToolCategories(tool.id);
-          const tags = await storage.getToolTags(tool.id);
+          const categories = await dataStorage.getToolCategories(tool.id);
+          const tags = await dataStorage.getToolTags(tool.id);
           return {
             ...tool,
             categories: categories.map(c => c.name),
@@ -126,8 +130,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...searchResult,
           tools: await Promise.all(
             searchResult.tools.map(async (tool) => {
-              const categories = await storage.getToolCategories(tool.id);
-              const tags = await storage.getToolTags(tool.id);
+              const categories = await dataStorage.getToolCategories(tool.id);
+              const tags = await dataStorage.getToolTags(tool.id);
               return {
                 ...tool,
                 categories: categories.map(c => c.name),

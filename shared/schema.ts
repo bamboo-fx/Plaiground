@@ -6,15 +6,37 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  email: text("email").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow(),
+  lastLogin: timestamp("last_login"),
+});
+
+export const userPreferences = pgTable("user_preferences", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  favoriteCategories: text("favorite_categories").array().notNull().default([]),
+  searchHistory: text("search_history").array().notNull().default([]),
+  savedTools: integer("saved_tools").array().notNull().default([]),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
+  email: true,
+});
+
+export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
+export type UserPreferences = typeof userPreferences.$inferSelect;
 
 // AI Tools schema
 export const tools = pgTable("tools", {
@@ -27,7 +49,7 @@ export const tools = pgTable("tools", {
   rating: text("rating").notNull(),
   pricing: text("pricing").notNull(),
   websiteUrl: text("website_url").notNull(),
-  featured: boolean("featured").default(false),
+  featured: boolean("featured").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -104,7 +126,7 @@ export const perplexityResponseSchema = z.object({
     rating: z.string(),
     pricing: z.string(),
     websiteUrl: z.string(),
-    featured: z.boolean().optional().nullable(),
+    featured: z.boolean(),
     createdAt: z.date().nullable(),
     categories: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),

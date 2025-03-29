@@ -1,17 +1,28 @@
 import {
   users, type User, type InsertUser,
+  userPreferences, type UserPreferences, type InsertUserPreferences,
   tools, type Tool, type InsertTool,
-  categories, type Category, type InsertCategory,
-  tags, type Tag, type InsertTag,
-  toolCategories, type ToolCategory, type InsertToolCategory,
-  toolTags, type ToolTag, type InsertToolTag
+  categories, type Category, 
+  tags, type Tag, 
+  toolCategories, type ToolCategory, 
+  toolTags, type ToolTag
 } from "@shared/schema";
 
 export interface IStorage {
   // User methods
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserLastLogin(userId: number): Promise<User>;
+  
+  // User Preferences methods
+  getUserPreferences(userId: number): Promise<UserPreferences | undefined>;
+  createUserPreferences(prefs: InsertUserPreferences): Promise<UserPreferences>;
+  updateUserPreferences(userId: number, prefs: Partial<InsertUserPreferences>): Promise<UserPreferences>;
+  addToSearchHistory(userId: number, query?: string): Promise<string[]>;
+  saveToolToFavorites(userId: number, toolId: number): Promise<number[]>;
+  removeToolFromFavorites(userId: number, toolId: number): Promise<number[]>;
 
   // Tool methods
   getTool(id: number): Promise<Tool | undefined>;
@@ -25,13 +36,13 @@ export interface IStorage {
   getCategories(): Promise<Category[]>;
   getCategory(id: number): Promise<Category | undefined>;
   getCategoryByName(name: string): Promise<Category | undefined>;
-  createCategory(category: InsertCategory): Promise<Category>;
+  createCategory(category: { name: string; icon: string; description: string }): Promise<Category>;
 
   // Tag methods
   getTags(): Promise<Tag[]>;
   getTag(id: number): Promise<Tag | undefined>;
   getTagByName(name: string): Promise<Tag | undefined>;
-  createTag(tag: InsertTag): Promise<Tag>;
+  createTag(tag: { name: string }): Promise<Tag>;
 
   // Relationship methods
   addToolCategory(toolId: number, categoryId: number): Promise<ToolCategory>;
@@ -42,15 +53,17 @@ export interface IStorage {
 
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
+  private userPreferences: Map<number, UserPreferences>;
   private tools: Map<number, Tool>;
   private categories: Map<number, Category>;
   private tags: Map<number, Tag>;
   private toolCategories: Map<number, ToolCategory>;
   private toolTags: Map<number, ToolTag>;
-  currentId: { users: number; tools: number; categories: number; tags: number; toolCategories: number; toolTags: number };
+  currentId: { users: number; userPreferences: number; tools: number; categories: number; tags: number; toolCategories: number; toolTags: number };
 
   constructor() {
     this.users = new Map();
+    this.userPreferences = new Map();
     this.tools = new Map();
     this.categories = new Map();
     this.tags = new Map();
@@ -58,6 +71,7 @@ export class MemStorage implements IStorage {
     this.toolTags = new Map();
     this.currentId = {
       users: 1,
+      userPreferences: 1,
       tools: 1,
       categories: 1,
       tags: 1,
@@ -82,9 +96,116 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentId.users++;
-    const user: User = { ...insertUser, id };
+    const createdAt = new Date();
+    const user: User = { ...insertUser, id, createdAt, lastLogin: null };
     this.users.set(id, user);
     return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.email === email,
+    );
+  }
+
+  async updateUserLastLogin(userId: number): Promise<User> {
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error(`User with ID ${userId} not found`);
+    }
+    user.lastLogin = new Date();
+    this.users.set(userId, user);
+    return user;
+  }
+
+  // User Preferences methods
+  async getUserPreferences(userId: number): Promise<UserPreferences | undefined> {
+    return Array.from(this.userPreferences.values()).find(
+      (prefs) => prefs.userId === userId
+    );
+  }
+
+  async createUserPreferences(prefs: InsertUserPreferences): Promise<UserPreferences> {
+    const id = this.currentId.userPreferences++;
+    const createdAt = new Date();
+    const updatedAt = new Date();
+    // Ensure arrays are not undefined
+    const favoriteCategories = prefs.favoriteCategories || [];
+    const searchHistory = prefs.searchHistory || [];
+    const savedTools = prefs.savedTools || []; 
+    const userPrefs: UserPreferences = { 
+      ...prefs, 
+      id, 
+      createdAt, 
+      updatedAt,
+      favoriteCategories,
+      searchHistory,
+      savedTools
+    };
+    this.userPreferences.set(id, userPrefs);
+    return userPrefs;
+  }
+
+  async updateUserPreferences(userId: number, prefs: Partial<InsertUserPreferences>): Promise<UserPreferences> {
+    const existingPrefs = await this.getUserPreferences(userId);
+    if (!existingPrefs) {
+      throw new Error(`User preferences for user ID ${userId} not found`);
+    }
+
+    const updatedPrefs: UserPreferences = {
+      ...existingPrefs,
+      ...prefs,
+      updatedAt: new Date()
+    };
+
+    this.userPreferences.set(existingPrefs.id, updatedPrefs);
+    return updatedPrefs;
+  }
+
+  async addToSearchHistory(userId: number, query?: string): Promise<string[]> {
+    const userPrefs = await this.getUserPreferences(userId);
+    if (!userPrefs) {
+      throw new Error(`User preferences for user ID ${userId} not found`);
+    }
+
+    // If a query is provided, add it to history
+    if (query) {
+      const searchHistory = userPrefs.searchHistory || [];
+      const updatedHistory = [...searchHistory, query];
+      await this.updateUserPreferences(userId, { searchHistory: updatedHistory });
+      return updatedHistory;
+    }
+
+    return userPrefs.searchHistory || [];
+  }
+
+  async saveToolToFavorites(userId: number, toolId: number): Promise<number[]> {
+    const userPrefs = await this.getUserPreferences(userId);
+    if (!userPrefs) {
+      throw new Error(`User preferences for user ID ${userId} not found`);
+    }
+
+    // Add tool to favorites if not already present
+    let savedTools = userPrefs.savedTools || [];
+    if (!savedTools.includes(toolId)) {
+      savedTools = [...savedTools, toolId];
+      await this.updateUserPreferences(userId, { savedTools });
+    }
+
+    return savedTools;
+  }
+
+  async removeToolFromFavorites(userId: number, toolId: number): Promise<number[]> {
+    const userPrefs = await this.getUserPreferences(userId);
+    if (!userPrefs) {
+      throw new Error(`User preferences for user ID ${userId} not found`);
+    }
+
+    // Remove tool from favorites if present
+    const savedTools = (userPrefs.savedTools || []).filter(id => id !== toolId);
+    await this.updateUserPreferences(userId, { savedTools });
+
+    return savedTools;
   }
 
   // Tool methods
@@ -105,7 +226,14 @@ export class MemStorage implements IStorage {
   async createTool(insertTool: InsertTool): Promise<Tool> {
     const id = this.currentId.tools++;
     const createdAt = new Date();
-    const tool: Tool = { ...insertTool, id, createdAt };
+    // Ensure featured is not undefined
+    const featured = typeof insertTool.featured === 'boolean' ? insertTool.featured : false;
+    const tool: Tool = { 
+      ...insertTool, 
+      id, 
+      createdAt,
+      featured 
+    };
     this.tools.set(id, tool);
     return tool;
   }
@@ -143,7 +271,7 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async createCategory(category: InsertCategory): Promise<Category> {
+  async createCategory(category: { name: string; icon: string; description: string }): Promise<Category> {
     const id = this.currentId.categories++;
     const newCategory: Category = { ...category, id };
     this.categories.set(id, newCategory);
@@ -165,7 +293,7 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async createTag(tag: InsertTag): Promise<Tag> {
+  async createTag(tag: { name: string }): Promise<Tag> {
     const id = this.currentId.tags++;
     const newTag: Tag = { ...tag, id };
     this.tags.set(id, newTag);
