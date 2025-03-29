@@ -335,6 +335,195 @@ export class DatabaseStorage implements IStorage {
       })
     );
   }
+
+  // Initialize database with sample data if empty
+  async initializeSampleData(): Promise<void> {
+    // Check if we have any tools already
+    const existingTools = await this.getTools();
+    if (existingTools.length > 0) {
+      console.log("Database already contains data, skipping initialization");
+      return;
+    }
+
+    console.log("Initializing database with sample data...");
+
+    try {
+      // Create categories
+      const imageGeneration = await this.createCategory({
+        name: "Image Generation",
+        icon: "fa-image",
+        description: "Create images from text prompts"
+      });
+
+      const contentWriting = await this.createCategory({
+        name: "Content Writing",
+        icon: "fa-pen-fancy",
+        description: "Generate blogs, articles, and copy"
+      });
+
+      const audioProcessing = await this.createCategory({
+        name: "Audio Processing",
+        icon: "fa-microphone",
+        description: "Transcribe, translate, and enhance audio"
+      });
+
+      const codeGeneration = await this.createCategory({
+        name: "Code Generation",
+        icon: "fa-code",
+        description: "Create and debug code with AI"
+      });
+
+      const chatbots = await this.createCategory({
+        name: "Chatbots",
+        icon: "fa-comments",
+        description: "Customer service and assistance"
+      });
+
+      const dataAnalysis = await this.createCategory({
+        name: "Data Analysis",
+        icon: "fa-chart-pie",
+        description: "Insights and visualization from data"
+      });
+
+      const videoEditing = await this.createCategory({
+        name: "Video Editing",
+        icon: "fa-film",
+        description: "Auto-edit, enhance, and generate video"
+      });
+
+      const translation = await this.createCategory({
+        name: "Translation",
+        icon: "fa-language",
+        description: "Translate content between languages"
+      });
+
+      // Create tags
+      const artTag = await this.createTag({ name: "Art" });
+      const designTag = await this.createTag({ name: "Design" });
+      const creativeTag = await this.createTag({ name: "Creative" });
+      const openSourceTag = await this.createTag({ name: "Open Source" });
+      const customizableTag = await this.createTag({ name: "Customizable" });
+      const productivityTag = await this.createTag({ name: "Productivity" });
+      const automationTag = await this.createTag({ name: "Automation" });
+      const writingTag = await this.createTag({ name: "Writing" });
+      const marketingTag = await this.createTag({ name: "Marketing" });
+
+      // Create tools
+      const dalle = await this.createTool({
+        name: "DALL-E",
+        description: "Creates realistic images and art from a description in natural language. Offers variations, editing, and multiple styles.",
+        companyName: "OpenAI",
+        logoUrl: "https://brandpalettes.com/wp-content/uploads/2022/02/DALL-E-logo.png",
+        imageUrl: "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1965&q=80",
+        rating: "4.8",
+        pricing: "Free trial, then $15/mo",
+        websiteUrl: "https://openai.com/dall-e/",
+        featured: true
+      });
+
+      const midjourney = await this.createTool({
+        name: "Midjourney",
+        description: "Discord-based AI image generation tool known for its artistic quality and stylized approach to creating visuals from text prompts.",
+        companyName: "Midjourney, Inc.",
+        logoUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Midjourney_Emblem.png/600px-Midjourney_Emblem.png",
+        imageUrl: "https://images.unsplash.com/photo-1696454690178-29fe99bd607b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80",
+        rating: "4.9",
+        pricing: "$10-30/mo",
+        websiteUrl: "https://www.midjourney.com/",
+        featured: false
+      });
+
+      const stableDiffusion = await this.createTool({
+        name: "Stable Diffusion",
+        description: "Open-source AI image generator that can be run locally or used through various interfaces. Known for flexibility and customization.",
+        companyName: "Stability AI",
+        logoUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/Stability_AI_logo.svg/1024px-Stability_AI_logo.svg.png",
+        imageUrl: "https://images.unsplash.com/photo-1684786075818-7ffba2bfdc98?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80",
+        rating: "4.7",
+        pricing: "Free, Cloud: $10/mo",
+        websiteUrl: "https://stability.ai/",
+        featured: false
+      });
+
+      const chatGPT = await this.createTool({
+        name: "ChatGPT",
+        description: "Conversational AI assistant for text generation, answering questions, and creative writing.",
+        companyName: "OpenAI",
+        logoUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/ChatGPT_logo.svg/1024px-ChatGPT_logo.svg.png",
+        imageUrl: "https://images.unsplash.com/photo-1669570094762-828f3dfaf675?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80",
+        rating: "4.9",
+        pricing: "Free / $20 mo",
+        websiteUrl: "https://chat.openai.com/",
+        featured: true
+      });
+
+      const jasper = await this.createTool({
+        name: "Jasper",
+        description: "AI content creation platform for marketing copy, blogs, social media posts and more.",
+        companyName: "Jasper AI",
+        logoUrl: "https://www.jasper.ai/images/new-jasper-logo.svg",
+        imageUrl: "https://images.unsplash.com/photo-1526378722484-bd91ca387e72?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1169&q=80",
+        rating: "4.7",
+        pricing: "From $49/mo",
+        websiteUrl: "https://www.jasper.ai/",
+        featured: true
+      });
+
+      const notionAI = await this.createTool({
+        name: "Notion AI",
+        description: "AI writing assistant integrated with Notion for drafting, editing, summarizing, and brainstorming.",
+        companyName: "Notion",
+        logoUrl: "https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png",
+        imageUrl: "https://images.unsplash.com/photo-1610986603166-f78428624e76?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80",
+        rating: "4.6",
+        pricing: "$10/mo add-on",
+        websiteUrl: "https://www.notion.so/product/ai",
+        featured: true
+      });
+
+      const descript = await this.createTool({
+        name: "Descript",
+        description: "AI-powered audio and video editing tool with transcription, voice cloning, and Studio Sound.",
+        companyName: "Descript",
+        logoUrl: "https://assets-global.website-files.com/61734ecee390bd3fe4fbfbb4/6347d1dc1099e74e06b1c46a_Frame%2016.svg",
+        imageUrl: "https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1169&q=80",
+        rating: "4.8",
+        pricing: "Free / From $12/mo",
+        websiteUrl: "https://www.descript.com/",
+        featured: true
+      });
+
+      // Add tool-category relationships
+      await this.addToolCategory(dalle.id, imageGeneration.id);
+      await this.addToolCategory(midjourney.id, imageGeneration.id);
+      await this.addToolCategory(stableDiffusion.id, imageGeneration.id);
+      await this.addToolCategory(chatGPT.id, chatbots.id);
+      await this.addToolCategory(jasper.id, contentWriting.id);
+      await this.addToolCategory(notionAI.id, contentWriting.id);
+      await this.addToolCategory(descript.id, audioProcessing.id);
+      await this.addToolCategory(descript.id, videoEditing.id);
+
+      // Add tool-tag relationships
+      await this.addToolTag(dalle.id, artTag.id);
+      await this.addToolTag(dalle.id, designTag.id);
+      await this.addToolTag(midjourney.id, artTag.id);
+      await this.addToolTag(midjourney.id, creativeTag.id);
+      await this.addToolTag(stableDiffusion.id, openSourceTag.id);
+      await this.addToolTag(stableDiffusion.id, customizableTag.id);
+      await this.addToolTag(chatGPT.id, writingTag.id);
+      await this.addToolTag(chatGPT.id, productivityTag.id);
+      await this.addToolTag(jasper.id, marketingTag.id);
+      await this.addToolTag(jasper.id, writingTag.id);
+      await this.addToolTag(notionAI.id, productivityTag.id);
+      await this.addToolTag(notionAI.id, automationTag.id);
+      await this.addToolTag(descript.id, automationTag.id);
+
+      console.log("Database initialization complete");
+    } catch (error) {
+      console.error("Error initializing database:", error);
+      throw error;
+    }
+  }
 }
 
 // Create database storage instance

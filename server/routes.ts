@@ -11,6 +11,15 @@ import { processSearchQuery } from "./openai";
 const dataStorage = process.env.DATABASE_URL ? dbStorage : storage;
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize database with sample data if needed
+  if (process.env.DATABASE_URL) {
+    try {
+      await dbStorage.initializeSampleData();
+      console.log("Database initialization complete or skipped");
+    } catch (error) {
+      console.error("Error initializing database with sample data:", error);
+    }
+  }
   // API routes
   app.get("/api/tools", async (req: Request, res: Response) => {
     try {
@@ -149,16 +158,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Error calling OpenAI API:", apiError);
         
         // Fallback to basic search if API call fails
-        const matchedTools = toolsWithDetails.filter(tool => {
-          const searchText = `${tool.name} ${tool.description} ${tool.categories?.join(' ')}`.toLowerCase();
-          return query.toLowerCase().split(' ').some(term => searchText.includes(term));
-        }).slice(0, 3);
+        // More sophisticated fallback search
+        const searchTerms = query.toLowerCase().split(' ');
+        
+        // Score tools based on search term matches
+        const scoredTools = toolsWithDetails.map(tool => {
+          const searchText = `${tool.name} ${tool.description} ${tool.categories?.join(' ')} ${tool.tags?.join(' ')}`.toLowerCase();
+          
+          // Calculate a score based on how many terms match
+          let score = 0;
+          for (const term of searchTerms) {
+            if (searchText.includes(term)) {
+              // Prioritize matches in name and categories
+              if (tool.name.toLowerCase().includes(term)) score += 3;
+              if (tool.categories?.some(c => c.toLowerCase().includes(term))) score += 2;
+              score += 1;
+            }
+          }
+          
+          return { tool, score };
+        });
+        
+        // Sort by score and get top results
+        const matchedTools = scoredTools
+          .filter(item => item.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 5)
+          .map(item => item.tool);
         
         const fallbackResponse = {
           tools: matchedTools,
           context: {
-            heading: `AI Tools for ${query}`,
-            description: `Here are some AI tools that might help you with ${query}.`
+            heading: `AI Tools for "${query}"`,
+            description: `Here are some AI tools that might help you with ${query}. (Using local search - OpenAI API limit reached)`
           }
         };
         
