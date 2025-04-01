@@ -1,3 +1,8 @@
+/**
+ * Routes configuration for the Plaiground API.
+ * Handles tool discovery, search, and data management endpoints.
+ */
+
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -7,11 +12,11 @@ import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { processSearchQuery } from "./openai";
 
-// Use database storage instead of memory storage when DATABASE_URL is present
+// Select storage implementation based on environment configuration
 const dataStorage = process.env.DATABASE_URL ? dbStorage : storage;
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Initialize database with sample data if needed
+  // Initialize database with sample data if using database storage
   if (process.env.DATABASE_URL) {
     try {
       await dbStorage.initializeSampleData();
@@ -20,12 +25,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error initializing database with sample data:", error);
     }
   }
-  // API routes
+
+  /**
+   * GET /api/tools
+   * Retrieves all tools with their associated categories and tags
+   */
   app.get("/api/tools", async (req: Request, res: Response) => {
     try {
       const tools = await dataStorage.getTools();
       
-      // If we need categories and tags with each tool
+      // Enhance tools with their categories and tags
       const toolsWithDetails = await Promise.all(
         tools.map(async (tool) => {
           const categories = await dataStorage.getToolCategories(tool.id);
@@ -45,6 +54,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  /**
+   * GET /api/tools/featured
+   * Retrieves featured tools with optional limit parameter
+   */
   app.get("/api/tools/featured", async (req: Request, res: Response) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 4;
@@ -70,6 +83,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  /**
+   * GET /api/categories
+   * Retrieves all categories
+   */
   app.get("/api/categories", async (req: Request, res: Response) => {
     try {
       const categories = await dataStorage.getCategories();
@@ -80,6 +97,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  /**
+   * GET /api/tools/category/:id
+   * Retrieves tools by category ID
+   */
   app.get("/api/tools/category/:id", async (req: Request, res: Response) => {
     try {
       const categoryId = parseInt(req.params.id);
@@ -105,6 +126,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  /**
+   * POST /api/search
+   * Searches for tools based on query parameters
+   */
   app.post("/api/search", async (req: Request, res: Response) => {
     try {
       // Validate the search query

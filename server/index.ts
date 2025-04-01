@@ -1,22 +1,33 @@
+/**
+ * Main server entry point for the Plaiground application.
+ * Sets up Express server with middleware, routes, and error handling.
+ */
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+// Initialize Express application
 const app = express();
+
+// Configure middleware for parsing JSON and URL-encoded bodies
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Request logging middleware with response capture
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
+  // Intercept json responses to log them
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
     capturedJsonResponse = bodyJson;
     return originalResJson.apply(res, [bodyJson, ...args]);
   };
 
+  // Log API requests upon completion
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
@@ -25,6 +36,7 @@ app.use((req, res, next) => {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
+      // Truncate long log lines for readability
       if (logLine.length > 80) {
         logLine = logLine.slice(0, 79) + "…";
       }
@@ -36,9 +48,11 @@ app.use((req, res, next) => {
   next();
 });
 
+// Self-executing async function to setup routes and start server
 (async () => {
   const server = await registerRoutes(app);
 
+  // Global error handling middleware
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
@@ -47,9 +61,8 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  // Setup Vite middleware for development
+  // This must be after all other routes to act as a catch-all
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
